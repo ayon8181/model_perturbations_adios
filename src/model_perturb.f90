@@ -5,6 +5,8 @@ program single_gaussian_perturb_for_psf
 ! Updated in Santa Barbara, July 2018
 ! Ridvan
 ! Updated in CSM, 2022
+! Updated to add perturbations only
+! Ayon Ghosh, Mines, 2024
 
   use adios_helpers_mod
   use manager_adios
@@ -16,7 +18,7 @@ program single_gaussian_perturb_for_psf
 
   integer,parameter:: NSPEC=NSPEC_CRUST_MANTLE
   integer,parameter:: NGLOB=NGLOB_CRUST_MANTLE
-  integer,parameter:: NKERNEL=7    !vpv,vph,vsv,vsh,rho,eta,qmu
+  integer,parameter:: NPARAMS=7    !vpv,vph,vsv,vsh,rho,eta,qmu
 
   integer, parameter :: NSPEC_MAX = NSPEC_CRUST_MANTLE_ADJOINT
   integer, parameter :: NGLOB_MAX = NGLOB_CRUST_MANTLE
@@ -28,10 +30,10 @@ program single_gaussian_perturb_for_psf
   character(len=512):: output_bp_file,solver_bp_file
   character(len=150):: solver_name(3)
   character(len=512):: latt,lonn,rr,ssigma, update_params
-  character(len=150):: kernel_name(NKERNEL)
-  real(kind=CUSTOM_REAL), dimension(NKERNEL) :: update 
+  character(len=150):: kernel_name(NPARAMS)
+  real(kind=CUSTOM_REAL), dimension(NPARAMS) :: update 
 
-  real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,NSPEC,NKERNEL):: new_kernel
+  real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,NSPEC,NPARAMS):: new_kernel, old_pert
 
   real(kind=CUSTOM_REAL) :: xloc,yloc,zloc,sigma,exp_val
   real(kind=CUSTOM_REAL) :: lat,lon,r,phi,theta
@@ -44,6 +46,10 @@ program single_gaussian_perturb_for_psf
 
   ! kernels
   integer:: i, j, k, ispec, iglob, iker
+
+ 
+   logical :: file_exists
+   
 
   call init_mpi()
   call world_size(sizeprocs)
@@ -110,6 +116,21 @@ program single_gaussian_perturb_for_psf
        "reg1/drho", &
        "reg1/dqmu" /)
 
+  inquire(file='your_file_name', exist=file_exists)
+   if (file_exists) then
+          call init_adios_group(myadios_group, "ModelReader")
+          call open_file_adios_read_and_init_method(myadios_file, &
+       myadios_group, trim(output_file)//'/model_pert.bp')
+       do iker=1,NPARAMS
+          call read_adios_array(myadios_file, myadios_group, &
+          myrank, NSPEC, trim(kernel_name(iker)), &
+          old_pert(:, :, :, :, iker))
+      enddo
+      call close_file_adios_read_and_finalize_method(myadios_file)
+   else
+        old_pert(:, :, :, :, iker)=0
+   end if
+
   solver_name=(/character(len=350) :: &
        "reg1/x_global", "reg1/y_global", "reg1/z_global"/)
 
@@ -139,9 +160,11 @@ program single_gaussian_perturb_for_psf
   
   end do
 
+
+
   ! end of reading parameters from the mesh
 
-   do iker=1,NKERNEL
+   do iker=1,NPARAMS
 
       ! perturb bulk_betav_kl453368
 
@@ -160,7 +183,7 @@ program single_gaussian_perturb_for_psf
 
                      exp_val = update(iker) * exp( - (x(iglob)-xloc)**2/sigma**2 - (y(iglob)-yloc)**2/sigma**2 - (z(iglob)-zloc)**2/sigma**2)
                      
-                     new_kernel(i,j,k,ispec, iker) = exp_val
+                     new_kernel(i,j,k,ispec, iker) = old_pert(i,j,k,ispec, iker)+exp_val
                      
                   end do
                end do
@@ -186,7 +209,7 @@ program single_gaussian_perturb_for_psf
   call set_adios_group_size(myadios_val_file, group_size_inc)
 
   local_dim = NGLLX * NGLLY * NGLLZ * NSPEC
-  do iker=1,NKERNEL
+  do iker=1,NPARAMS
      !------------------------.
      ! Define ADIOS Variables |
      !------------------------'

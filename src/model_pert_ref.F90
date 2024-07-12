@@ -4,6 +4,8 @@ program model_pert_ref
 ! Princeton, September 2013
 ! Updated adios lib
 ! Ridvan Orsvuran, 2021
+! Updated to add perturbations only
+! Ayon Ghosh, Mines, 2024
 
   use adios_helpers_mod
   use manager_adios
@@ -152,20 +154,14 @@ program model_pert_ref
   do iker=1,NPARAMS
 #if defined(USE_QMU)
      ! model: Qmu , model_pert: Qmu_new^{-1} - Qmu_old^{-1}
-     if (iker == 7) then
-         model_new(:,:,:,:,iker) = 1.0/ ((1.0/model_old(:,:,:,:,iker)) + 1.0/(model_old(:,:,:,:,iker)))
+     
+         model_new(:,:,:,:,iker) = 1.0/ ((1.0/model_old(:,:,:,:,iker)) + model_pert(:,:,:,:,iker))
          if (myrank == 0) print*, "Updated", model_name(iker)
-     else 
-          model_new(:,:,:,:,iker) = model_old(:,:,:,:,iker)
-     endif
 #else
-     if (iker==7) then
-        model_new(:,:,:,:,iker) = model_old(:,:,:,:,iker)
-        
-     else
+     
         model_new(:,:,:,:,iker) = model_old(:,:,:,:,iker) * exp(model_pert(:,:,:,:,iker))
         if (myrank == 0) print*, "Updated", model_name(iker)
-     endif
+     
 #endif
   enddo
 
