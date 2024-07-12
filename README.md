@@ -8,7 +8,7 @@
 4. make all 
 5. Usage Instruction:
    First create the perturbed Gaussian Model saved in *model_pert.bp* of the given directory
-   *Usage: bin/xmodel_pert lat lon depth sigma solver_dir output_dir 'array specifying which models to perturb in the order vph vpv vsh vsv rho eta qmu'*
+   *Usage: bin/xmodel_pert lat lon depth sigma solver_dir output_dir 'array specifying weights by which models to perturb in the order vph vpv vsh vsv rho eta qmu'*
 
 
    Create only perturbation for elastic structure, Model file saved as *gll_model_perturbed.bp*
