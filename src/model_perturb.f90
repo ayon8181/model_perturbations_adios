@@ -29,7 +29,6 @@ program single_gaussian_perturb_for_psf
   character(len=150):: solver_name(3)
   character(len=512):: latt,lonn,rr,ssigma, update_params
   character(len=150):: kernel_name(NKERNEL)
-  real(kind=CUSTOM_REAL), dimension(NKERNEL) :: update 
 
   real(kind=CUSTOM_REAL),dimension(NGLLX,NGLLY,NGLLZ,NSPEC,NKERNEL):: new_kernel
 
@@ -59,16 +58,14 @@ program single_gaussian_perturb_for_psf
   call getarg(5,solver_file)
   call getarg(6,output_file)
   call getarg(7,update_params)
-  if (myrank == 0) then
-    print*,trim(solver_file)
-  end if
   if (trim(latt) == '' &
     .or. trim(lonn) == '' &
     .or. trim(rr) == '' &
     .or. trim(ssigma) == '' &
     .or. trim(solver_file) == '' &
-    .or. trim(output_file) == '') then
-      call exit_MPI(myrank, 'Usage: lat lon r sigma solver_file output_file')
+    .or. trim(output_file) == '' &
+    .or. trim(update_params) == '') then
+      call exit_MPI(myrank, 'Usage: lat lon r sigma solver_file output_file update_param')
   end if
 
   ! read the location and the sigma of the Gaussian perturbation
@@ -76,10 +73,7 @@ program single_gaussian_perturb_for_psf
   read(lonn,*) lon
   read(rr,*) r
   read(ssigma,*) sigma
-  read(solver_file,*)
-  read(output_file,*)
-  read(update_params,*) update
-  if (myrank == 0) print*,lat,lon,r,sigma,update
+  if (myrank == 0) print*,"input parameters:", lat,lon, r, ssigma, trim(update_params)
 
 ! convert lat, lon, r and sigma to unit sphere
 
@@ -145,8 +139,8 @@ program single_gaussian_perturb_for_psf
 
       ! perturb bulk_betav_kl453368
 
-      if (update(iker) == update(iker)) then
-         if (myrank == 40) print*, iker
+      ! if (myrank == 0) print *, "kernel_name:", iker, kernel_name(iker)(6:9)
+      if (trim(kernel_name(iker)(7:9)) == update_params) then
          do ispec = 1,NSPEC
             do k = 1,NGLLZ
                do j = 1,NGLLY
@@ -158,7 +152,7 @@ program single_gaussian_perturb_for_psf
                      iglob = ibool(i,j,k,ispec)
                      !if (myrank == 45) print*, dist
 
-                     exp_val = update(iker) * exp( - (x(iglob)-xloc)**2/sigma**2 - (y(iglob)-yloc)**2/sigma**2 - (z(iglob)-zloc)**2/sigma**2)
+                     exp_val = exp( - (x(iglob)-xloc)**2/sigma**2 - (y(iglob)-yloc)**2/sigma**2 - (z(iglob)-zloc)**2/sigma**2)
                      
                      new_kernel(i,j,k,ispec, iker) = exp_val
                      
